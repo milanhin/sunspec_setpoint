@@ -1,0 +1,1 @@
+DOMAIN = "sunspec_setpoint"
