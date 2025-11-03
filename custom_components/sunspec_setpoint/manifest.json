@@ -1,7 +1,7 @@
 {
   "domain": "sunspec_setpoint",
   "name": "SunSpec Setpoint",
-  "codeowners": ["milanhin"],
+  "codeowners": ["@milanhin"],
   "config_flow": false,
   "dependencies": [],
   "documentation": "https://github.com/milanhin/sunspec_setpoint",
