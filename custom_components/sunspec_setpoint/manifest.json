@@ -1,11 +1,11 @@
 {
+  "domain": "sunspec_setpoint",
+  "name": "SunSpec Setpoint",
   "codeowners": ["milanhin"],
   "config_flow": false,
   "dependencies": [],
   "documentation": "https://github.com/milanhin/sunspec_setpoint",
-  "domain": "sunspec_setpoint",
   "iot_class": "local_push",
-  "name": "SunSpec Setpoint",
   "requirements": [],
   "version": "0.0.0"
 }
