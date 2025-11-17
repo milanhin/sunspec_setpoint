@@ -7,6 +7,7 @@ from homeassistant.components.number import NumberEntity, PLATFORM_SCHEMA
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.const import UnitOfPower
 from .const import(
     CONF_INJ_TARIFF_ENT_ID,
@@ -80,7 +81,7 @@ class SetpointNumber(NumberEntity):
         if pwr_export_state == None: return None
         if pwr_PV_state == None: return None
 
-        inj_tariff = self.convert_pwr_state_to_watt(inj_tariff_state)
+        inj_tariff = float(inj_tariff_state.state)
         pwr_import = self.convert_pwr_state_to_watt(pwr_import_state)
         pwr_export = self.convert_pwr_state_to_watt(pwr_export_state)
         pwr_PV     = self.convert_pwr_state_to_watt(pwr_PV_state)
@@ -94,7 +95,7 @@ class SetpointNumber(NumberEntity):
         if inj_tariff >= INJ_CUTOFF_TARIFF:
             return round(max_PV_power)
         
-        if pwr_import > 20 and inj_tariff < INJ_CUTOFF_TARIFF:
+        if pwr_import > 5 and inj_tariff < INJ_CUTOFF_TARIFF:
             sp = min(pwr_PV + pwr_import, max_PV_power)  # don't go above max power
             _LOGGER.info(f"PV setpoint sent during curtailing and importing from grid, PV: {pwr_PV} W, import: {pwr_import} W, export: {pwr_export} W, setpoint: {sp} W")
             return round(sp)
@@ -114,5 +115,5 @@ class SetpointNumber(NumberEntity):
         elif unit == "mW" or unit == "MW":
             return value / 1e3
         else:
-            _LOGGER.error(f"Provided power entity {state.entity_id} has to known unit")
+            _LOGGER.error(f"Provided power entity {state.entity_id} has no known unit")
             return 0
