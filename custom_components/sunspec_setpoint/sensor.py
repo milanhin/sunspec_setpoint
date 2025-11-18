@@ -14,7 +14,6 @@ from .const import(
     CONF_INJ_TARIFF_ENT_ID,
     CONF_PWR_IMP_ENT_ID,
     CONF_PWR_EXP_ENT_ID,
-    CONF_PWR_PV_MAX,
     CONF_INVERTER_BRAND,
     CONF_IP,
     CONF_PORT,
