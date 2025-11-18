@@ -2,7 +2,7 @@ import logging
 import voluptuous as vol
 
 from datetime import timedelta
-from homeassistant.core import HomeAssistant, State
+from homeassistant.core import HomeAssistant
 from homeassistant.components.sensor import SensorEntity, PLATFORM_SCHEMA
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 import homeassistant.helpers.config_validation as cv
@@ -15,11 +15,25 @@ from .const import(
     CONF_PWR_IMP_ENT_ID,
     CONF_PWR_EXP_ENT_ID,
     CONF_PWR_PV_ENT_ID,
-    INJ_CUTOFF_TARIFF,
     CONF_PWR_PV_MAX,
+    CONF_INVERTER_BRAND,
+    SMA,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+def validate_brand(brand_str: str):
+    """
+    Check if configured inverter brand is in the supported brands list
+    Names of brands are in lower case for easier comparison 
+    """
+    supported_brands = [
+    SMA,
+    ]
+
+    if brand_str.lower() not in supported_brands:
+        raise vol.Invalid("The configured inverter brand is not supported by this integration")
+    return brand_str
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -28,6 +42,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Required(CONF_PWR_EXP_ENT_ID): cv.string,
         vol.Required(CONF_PWR_PV_ENT_ID): cv.string,
         vol.Required(CONF_PWR_PV_MAX): vol.Coerce(int),
+        vol.Required(CONF_INVERTER_BRAND): vol.All(str, validate_brand),
     }
 )
 
@@ -37,14 +52,14 @@ async def async_setup_platform(
     async_add_entities: AddEntitiesCallback,
     discovery_info: DiscoveryInfoType | None = None
 ) -> None:
-    
+    _LOGGER.info("Setup of sunspec setpoint was initialised")
     # initialise coordinator
     pv_coordinator = PvCurtailingCoordinator(
         hass=hass,
         config=config,
     )
 
-    await pv_coordinator.async_refresh()  # call _async_update_data() of coordinator
+    await hass.async_add_executor_job(pv_coordinator.sunspec_setup)  # Connect with SunSpec device (blocking call)
 
     async_add_entities([SetpointSensor(coordinator=pv_coordinator)])
     _LOGGER.info("SunSpec Setpoint platform was set up")

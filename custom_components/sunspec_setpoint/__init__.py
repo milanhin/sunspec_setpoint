@@ -1,2 +1,1 @@
-from homeassistant import core
-"""Setup docstring"""
+"""Setup component"""

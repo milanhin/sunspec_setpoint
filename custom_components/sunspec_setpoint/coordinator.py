@@ -2,6 +2,7 @@ import logging
 import datetime
 import requests
 import aiohttp
+import sunspec2.modbus.client as client
 
 from typing import Any
 from homeassistant.helpers.update_coordinator import (
@@ -38,8 +39,10 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
             update_interval=datetime.timedelta(seconds=30),
         )
 
+        _LOGGER.info("Coordinator for SunSpec setpoint initialised")
         self.setpoint_W: int | None = None      # Holds setpoint in Watt
         self.setpoint_pct: float | None = None  # Holds setpoint in percentage
+        self.d = None  # SunSpec client device
 
         # unpack config
         self.pwr_ent_ids = {}
@@ -51,6 +54,22 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
     
     async def _async_setup(self) -> None:
         """Set up coordinator"""
+
+    def sunspec_setup(self) -> None:
+        _LOGGER.info("Setting sunspec connection")
+        # Connect to inverter with sunspec
+        try:
+            self.d = client.SunSpecModbusClientDeviceTCP(slave_id=126, ipaddr="192.168.1.170", ipport=502)
+            self.d.scan()
+        except Exception as e:
+            _LOGGER.error(f"Setpoint integration failed to connect to SunSpec device, error: {e}")
+            return
+        
+        WRtg = self.d.models[120][0].WRtg.value
+        WRtg_SF = self.d.models[120][0].WRtg_SF.value
+        rating = WRtg * 10 ** WRtg_SF
+        self.pwr_pv_max = rating
+        _LOGGER.info(f"Max rated power read from sunspec: {rating} W")
     
     async def _async_update_data(self) -> dict[str, Any]:
         inj_tariff_state = self.hass.states.get(self.inj_trf_ent_id)
@@ -59,10 +78,14 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         pwr_PV_state = self.hass.states.get(self.pwr_pv_ent_id)
 
         # temporary type fix
-        if inj_tariff_state == None: return {}
-        if pwr_import_state == None: return {}
-        if pwr_export_state == None: return {}
-        if pwr_PV_state == None: return {}
+        if (
+            inj_tariff_state == None or
+            pwr_import_state == None or
+            pwr_export_state == None or
+            pwr_PV_state == None 
+        ):
+            _LOGGER.error("Entity needed for setpoint has no value")
+            return {}
 
         inj_tariff = float(inj_tariff_state.state)
         pwr_import = self.convert_pwr_state_to_watt(pwr_import_state)
