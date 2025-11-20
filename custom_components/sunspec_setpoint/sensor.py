@@ -7,7 +7,7 @@ from homeassistant.components.sensor import SensorEntity, PLATFORM_SCHEMA
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.const import UnitOfPower
 from .coordinator import PvCurtailingCoordinator
 from .const import(

@@ -204,6 +204,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         if INVERTER_THREE_PAHSE_MID in d.models:
             return INVERTER_THREE_PAHSE_MID
         _LOGGER.error("No measurands model was found on the SunSpec device, this integration will now freeze")
+        self.shutdown_flag = True
         return None
     
     def write_setpoint(self, d, sp_pct: float) -> None:
@@ -238,5 +239,5 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
                 if try_counter < 3:
                     sleep_time = 60
                 else:
-                    sleep_time = 300
+                    sleep_time = 600
                 _LOGGER.warning(f"Failed reconnecting to SunSpec device, reconnecting in {sleep_time} s")
