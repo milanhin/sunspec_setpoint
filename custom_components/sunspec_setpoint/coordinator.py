@@ -1,8 +1,5 @@
 import logging
 import datetime
-import requests
-import aiohttp
-import asyncio
 import sunspec2.modbus.client as client
 
 from typing import Any
@@ -13,7 +10,6 @@ from homeassistant.helpers.update_coordinator import (
 )
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.core import HomeAssistant, State
-from homeassistant import config_entries
 
 from .const import(
     CONF_INJ_TARIFF_ENT_ID,
@@ -57,6 +53,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         self.d = None                           # SunSpec client device
         self.WRtg: int | None = None            # Rated inverter power
         self.shutdown_flag: bool = False        # flag for disabling async_update_data()
+        self.system_switch: bool = False        # System on or off, set by switch entity, off when integration starts
 
         # unpack config
         self.inj_trf_ent_id: str = config[CONF_INJ_TARIFF_ENT_ID]
@@ -125,13 +122,21 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
             return {}
         
         # Calculate setpoints for inverter power and send it to inverter
-        if self.W != None and self.WRtg != None and pwr_export != None and pwr_import != None:
-            self.setpoint_W = self.calc_setpoint_W(inj_tariff, pwr_import, pwr_export, self.W, pwr_rated=self.WRtg)
-            self.setpoint_pct = self.calc_setpoint_pct(sp_W=self.setpoint_W, pwr_rated=self.WRtg)
-            if not (self.last_setpoint_W == self.WRtg and self.setpoint_W == self.WRtg):  # Don't keep sending 100% setpoints       
-                self.write_setpoint(d=self.d, sp_pct=self.setpoint_pct)
+        if self.system_switch:
+            if self.W != None and self.WRtg != None and pwr_export != None and pwr_import != None:
+                self.setpoint_W = self.calc_setpoint_W(inj_tariff, pwr_import, pwr_export, self.W, pwr_rated=self.WRtg)
+                self.setpoint_pct = self.calc_setpoint_pct(sp_W=self.setpoint_W, pwr_rated=self.WRtg)
+                if not (self.last_setpoint_W == self.WRtg and self.setpoint_W == self.WRtg):  # Don't keep sending 100% setpoints       
+                    self.write_setpoint(d=self.d, sp_pct=self.setpoint_pct)
+            else:
+                _LOGGER.warning("Missing data for setpoint calculation, so no setpoint has been sent to the inverter")
+
+        # If system switch is off, set sp to 100% and only send it once
         else:
-            _LOGGER.warning("Missing data for setpoint calculation, so no setpoint has been sent to the inverter")
+            self.setpoint_W = self.WRtg
+            self.setpoint_pct = 100
+            if not (self.last_setpoint_W == self.WRtg):
+                self.write_setpoint(d=self.d, sp_pct=self.setpoint_pct)
 
         return {
             "setpoint_W": self.setpoint_W,

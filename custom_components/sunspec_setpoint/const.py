@@ -1,4 +1,5 @@
 DOMAIN = "sunspec_setpoint"
+COORDINATOR = "coordinator"
 
 CONF_INJ_TARIFF_ENT_ID = "injection_tariff_entity_id"
 CONF_PWR_IMP_ENT_ID = "power_import_entity_id"
