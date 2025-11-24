@@ -9,18 +9,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.const import UnitOfPower
 from .coordinator import PvCurtailingCoordinator
-from .const import (
-    DOMAIN,
-    SMA,
-    CONF_INJ_TARIFF_ENT_ID,
-    CONF_INVERTER_BRAND,
-    CONF_IP,
-    CONF_PORT,
-    CONF_PWR_EXP_ENT_ID,
-    CONF_PWR_IMP_ENT_ID,
-    CONF_SLAVE_ID,
-    COORDINATOR,
-)
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 

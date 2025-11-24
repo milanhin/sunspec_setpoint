@@ -28,7 +28,7 @@ from .const import(
     CONF_IP,
     CONF_PORT,
     CONF_SLAVE_ID,
-    SMA,
+    Brand,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         self.IP:             str = config[CONF_IP]
         self.PORT                = int(config[CONF_PORT])
         self.SLAVE_ID            = int(config[CONF_SLAVE_ID])
-        self.brand               = str(config[CONF_INVERTER_BRAND]).lower()
+        self.brand: Brand = Brand(str(config[CONF_INVERTER_BRAND]).lower())
     
     async def _async_setup(self) -> None:
         """Set up coordinator"""
@@ -216,7 +216,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         for name, point in d.models[CONTROLS_MID][0].points.items():
             if point.offset == WMAXLIMPCT_OFFSET:
                 point.read()
-                if self.brand == SMA:
+                if self.brand == Brand.SMA:
                     point.cvalue = sp_pct
                     try:
                         point.write()

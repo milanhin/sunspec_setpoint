@@ -1,3 +1,4 @@
+import logging
 import voluptuous as vol
 
 import homeassistant.helpers.config_validation as cv
@@ -7,10 +8,9 @@ from homeassistant.helpers.discovery import async_load_platform
 from homeassistant.helpers.typing import ConfigType
 
 from .coordinator import PvCurtailingCoordinator
-
 from .const import (
     DOMAIN,
-    SMA,
+    Brand,
     CONF_INJ_TARIFF_ENT_ID,
     CONF_INVERTER_BRAND,
     CONF_IP,
@@ -21,16 +21,13 @@ from .const import (
     COORDINATOR,
 )
 
+_LOGGER = logging.getLogger(__name__)
+
 def validate_brand(brand_str: str):
         """
-        Check if configured inverter brand is in the supported brands list
-        Names of brands are in lower case for easier comparison 
+        Check if configured inverter brand is in the supported brands list 
         """
-        supported_brands = [
-        SMA,
-        ]
-
-        if brand_str.lower() not in supported_brands:
+        if brand_str.lower() not in Brand:
             raise vol.Invalid("The configured inverter brand is not supported by this integration")
         return brand_str
 

@@ -1,3 +1,5 @@
+from enum import StrEnum
+
 DOMAIN = "sunspec_setpoint"
 COORDINATOR = "coordinator"
 
@@ -12,7 +14,12 @@ CONF_SLAVE_ID = "slave_id"
 INJ_CUTOFF_TARIFF = 50  # [€/MwH]
 
 # Supported brands
-SMA = "sma"
+class Brand(StrEnum):
+    """
+    All supported brands should be configured here
+    Names of brands are in lower case for easier comparison
+    """
+    SMA = "sma"
 
 # SunSpec model IDs
 NAMEPLATE_MID = 120
