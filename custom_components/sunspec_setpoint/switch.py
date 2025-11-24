@@ -20,14 +20,18 @@ class CurtailmentSwitch(CoordinatorEntity, SwitchEntity): # pyright: ignore[repo
         self.coordinator = coordinator
         self._attr_is_on = self.coordinator.system_switch
     
-    def turn_on(self, **kwargs) -> None:
+    @property
+    def is_on(self) -> bool: # pyright: ignore[reportIncompatibleVariableOverride]
+        return self.coordinator.system_switch
+    
+    async def async_turn_on(self, **kwargs) -> None:
         self.coordinator.system_switch = True
-        self._attr_is_on = self.coordinator.system_switch
+        self.async_write_ha_state()
         _LOGGER.info("Curtailment system was activated")
 
-    def turn_off(self, **kwargs) -> None:
+    async def async_turn_off(self, **kwargs) -> None:
         self.coordinator.system_switch = False
-        self._attr_is_on = self.coordinator.system_switch
+        self.async_write_ha_state()
         _LOGGER.info("Curtailment system was deactivated")
 
 

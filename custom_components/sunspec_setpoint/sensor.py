@@ -32,8 +32,6 @@ async def async_setup_platform(
 ) -> None:
     pv_coordinator = hass.data[DOMAIN]
 
-    await hass.async_add_executor_job(pv_coordinator.sunspec_setup)  # Connect with SunSpec device (blocking call)
-
     async_add_entities([SetpointSensor(coordinator=pv_coordinator), InverterPowerSensor(coordinator=pv_coordinator)])
     _LOGGER.info("SunSpec Setpoint sensors were set up")
 

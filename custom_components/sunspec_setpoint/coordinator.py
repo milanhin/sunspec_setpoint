@@ -68,7 +68,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         """Set up coordinator"""
 
     def sunspec_setup(self) -> None:
-        """Setup coordinator and connect to SunSpec device for config through yaml"""
+        """Connect to SunSpec device for config through yaml"""
 
         _LOGGER.info("Setting up SunSpec connection")
         # Connect to inverter with sunspec
@@ -147,7 +147,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         try:
             value = float(state.state)
         except:
-            _LOGGER.warning(f"The state {state.state} of provided power entity {state.entity_id} could not be parsed as a number")
+            _LOGGER.warning(f"The state \"{state.state}\" of provided power entity {state.entity_id} could not be parsed as a number")
             return None
         unit = state.attributes.get("unit_of_measurement", None)
         if unit == "kW":

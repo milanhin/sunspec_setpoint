@@ -58,6 +58,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     hass.data[DOMAIN] = pv_coordinator
 
+    await hass.async_add_executor_job(pv_coordinator.sunspec_setup)  # Connect with SunSpec device (blocking call)
+
     await async_load_platform(
         hass=hass,
         component="switch",
