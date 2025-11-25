@@ -10,26 +10,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.core import HomeAssistant, State
-
-from .const import(
-    CONF_INJ_TARIFF_ENT_ID,
-    CONF_PWR_IMP_ENT_ID,
-    CONF_PWR_EXP_ENT_ID,
-    CONF_INVERTER_BRAND,
-    INJ_CUTOFF_TARIFF,
-    INVERTER_SINGLE_PHASE_MID,
-    INVERTER_THREE_PAHSE_MID,
-    INVERTER_SPLIT_PHASE_MID,
-    CONTROLS_MID,
-    NAMEPLATE_MID,
-    WRTG_OFFSET,
-    WMAXLIMPCT_OFFSET,
-    W_OFFSET,
-    CONF_IP,
-    CONF_PORT,
-    CONF_SLAVE_ID,
-    Brand,
-)
+from .const import *
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,7 +25,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
             logger=_LOGGER,
             name="PV_Curtailing_coordinator",
             config_entry=None,
-            update_interval=datetime.timedelta(seconds=20),
+            update_interval=datetime.timedelta(seconds=UPDATE_INTERVAL),
         )
         self.setpoint_W: int | None = None      # Holds setpoint in Watt
         self.last_setpoint_W: int | None = None # Last sent setpoint
@@ -55,6 +36,14 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         self.shutdown_flag: bool = False        # flag for disabling async_update_data()
         self.system_switch: bool = False        # System on or off, set by switch entity, off when integration starts
 
+        # SunSpec models and offsets
+        self.measurands_mid: int | None = None
+        self.controls_mid: int | None = None
+        self.rating_mid: int | None = None
+        self.W_offset: int | None = None
+        self.WRtg_offset: int | None = None
+        self.WMaxLimPct_offset: int | None = None
+
         # unpack config
         self.inj_trf_ent_id: str = config[CONF_INJ_TARIFF_ENT_ID]
         self.pwr_imp_ent_id: str = config[CONF_PWR_IMP_ENT_ID]
@@ -62,7 +51,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         self.IP:             str = config[CONF_IP]
         self.PORT                = int(config[CONF_PORT])
         self.SLAVE_ID            = int(config[CONF_SLAVE_ID])
-        self.brand: Brand = Brand(str(config[CONF_INVERTER_BRAND]).lower())
+        self.brand: Brand        = Brand(str(config[CONF_INVERTER_BRAND]).lower())
     
     async def _async_setup(self) -> None:
         """Set up coordinator"""
@@ -71,6 +60,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         """Connect to SunSpec device for config through yaml"""
 
         _LOGGER.info("Setting up SunSpec connection")
+        self.shutdown_flag = False
         # Connect to inverter with sunspec
         try:
             self.d = client.SunSpecModbusClientDeviceTCP(slave_id=self.SLAVE_ID, ipaddr=self.IP, ipport=self.PORT)
@@ -79,11 +69,14 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
             _LOGGER.error(f"Failed to connect to SunSpec device, error: {e}")
             return
         
-        # Check which model to use for measurands
-        self.measurands_mid = self.check_measurand_model(d=self.d)
+        # Check which models and offsets to use for read and write
+        self.set_models_and_offsets(d=self.d)
+        if None in [self.rating_mid, self.controls_mid, self.measurands_mid]:
+            self.shutdown_flag = True
+            return
 
         # Get power rating of inverter
-        rating = self.offset_get(d=self.d, mid=NAMEPLATE_MID, trg_offset=WRTG_OFFSET)
+        rating = self.offset_get(d=self.d, mid=self.rating_mid, trg_offset=self.WRtg_offset) # pyright: ignore[reportArgumentType]
         if rating != None:
             self.WRtg = int(rating)
         _LOGGER.info(f"Max rated power read from SunSpec device: {rating} W")
@@ -116,8 +109,8 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         pwr_export = self.convert_pwr_state_to_watt(pwr_export_state)
 
         # Read inverter power through SunSpec
-        if self.measurands_mid != None:
-            self.W = await self.offset_read(d=self.d, mid=self.measurands_mid, trg_offset=W_OFFSET)
+        if self.measurands_mid != None and self.W_offset != None:
+            self.W = await self.offset_read(d=self.d, mid=self.measurands_mid, trg_offset=self.W_offset)
         else:
             return {}
         
@@ -194,6 +187,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         return None
     
     def offset_get(self, d, mid: int, trg_offset: int) -> float | None:
+        """Get a value from SunSpec device python instance, without reading"""
         for name, point in d.models[mid][0].points.items():
             if point.offset == trg_offset:
                 val = point.cvalue
@@ -201,20 +195,51 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         _LOGGER.error(f"SunSpec point with model id {mid} and offset {trg_offset} was not found")
         return None
     
-    def check_measurand_model(self, d) -> int | None:
-        if INVERTER_SINGLE_PHASE_MID in d.models:
-            return INVERTER_SINGLE_PHASE_MID
-        if INVERTER_SPLIT_PHASE_MID in d.models:
-            return INVERTER_SPLIT_PHASE_MID
-        if INVERTER_THREE_PAHSE_MID in d.models:
-            return INVERTER_THREE_PAHSE_MID
-        _LOGGER.error("No measurands model was found on the SunSpec device, this integration will now freeze")
-        self.shutdown_flag = True
-        return None
+    def set_models_and_offsets(self, d) -> None:
+        """Check which models are available on the SunSpec device"""
+        # Measurands model:
+        if DER_MEASURE_AC_MID in d.models:
+            self.measurands_mid = DER_MEASURE_AC_MID
+            self.W_offset = W_OFFSET_7XX
+        elif INVERTER_SINGLE_PHASE_MID in d.models:
+            self.measurands_mid = INVERTER_SINGLE_PHASE_MID
+            self.W_offset = W_OFFSET_1XX
+        elif INVERTER_SPLIT_PHASE_MID in d.models:
+            self.measurands_mid = INVERTER_SPLIT_PHASE_MID
+            self.W_offset = W_OFFSET_1XX
+        elif INVERTER_THREE_PAHSE_MID in d.models:
+            self.measurands_mid = INVERTER_THREE_PAHSE_MID
+            self.W_offset = W_OFFSET_1XX
+        else:
+            _LOGGER.error("No measurands model was found on the SunSpec device, this integration will now freeze")
+            self.shutdown_flag = True
+        
+        # Control model:
+        if DER_CTL_AC_MID in d.models:
+            self.controls_mid = DER_CTL_AC_MID
+            self.WMaxLimPct_offset = WMAXLIMPCT_OFFSET_7XX
+        elif CONTROLS_MID in d.models:
+            self.controls_mid = CONTROLS_MID
+            self.WMaxLimPct_offset = WMAXLIMPCT_OFFSET_1XX
+        else:
+            _LOGGER.error("No controls model was found on the SunSpec device, this integration will now freeze")
+            self.shutdown_flag = True
+        
+        # Rating model:
+        if DER_CAPACITY_MID in d.models:
+            self.rating_mid = DER_CAPACITY_MID
+            self.WRtg_offset = WRTG_OFFSET_7XX
+        elif NAMEPLATE_MID in d.models:
+            self.rating_mid = NAMEPLATE_MID
+            self.WRtg_offset = WRTG_OFFSET_1XX
+        else:
+            _LOGGER.error("No ratings model was found on the SunSpec device, this integration will now freeze")
+            self.shutdown_flag = True
     
     def write_setpoint(self, d, sp_pct: float) -> None:
-        for name, point in d.models[CONTROLS_MID][0].points.items():
-            if point.offset == WMAXLIMPCT_OFFSET:
+        """Write a power setpoint to the SunSpec device, tailored to its brand"""
+        for name, point in d.models[self.controls_mid][0].points.items():
+            if point.offset == self.WMaxLimPct_offset:
                 point.read()
                 if self.brand == Brand.SMA:
                     point.cvalue = sp_pct
@@ -230,6 +255,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
                     return
     
     async def try_reconnect(self) -> None:
+        """Create reconnection loop while not connected"""
         is_connected = False
         try_counter = 0
         sleep_time = 0

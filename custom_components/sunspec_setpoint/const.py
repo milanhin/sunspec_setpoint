@@ -12,6 +12,7 @@ CONF_PORT = "port"
 CONF_SLAVE_ID = "slave_id"
 
 INJ_CUTOFF_TARIFF = 50  # [€/MwH]
+UPDATE_INTERVAL = 10  # [s]
 
 # Supported brands
 class Brand(StrEnum):
@@ -22,13 +23,23 @@ class Brand(StrEnum):
     SMA = "sma"
 
 # SunSpec model IDs
+    # 100 series
 NAMEPLATE_MID = 120
 INVERTER_SINGLE_PHASE_MID = 101
 INVERTER_SPLIT_PHASE_MID = 102
 INVERTER_THREE_PAHSE_MID = 103
 CONTROLS_MID = 123
+    # 700 series
+DER_MEASURE_AC_MID = 701
+DER_CAPACITY_MID = 702
+DER_CTL_AC_MID = 704
 
 # SunSpec offsets
-WRTG_OFFSET = 3  # rated nominal power of inverter
-W_OFFSET = 14  # AC power
-WMAXLIMPCT_OFFSET = 5  # Set power output to specified level
+    # 100 series
+WRTG_OFFSET_1XX = 3  # rated nominal power of inverter
+W_OFFSET_1XX = 14  # AC power
+WMAXLIMPCT_OFFSET_1XX = 5  # Set power output to specified level
+    # 700 series
+WRTG_OFFSET_7XX = 2
+W_OFFSET_7XX = 10
+WMAXLIMPCT_OFFSET_7XX = 15
