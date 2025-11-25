@@ -213,6 +213,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         else:
             _LOGGER.error("No measurands model was found on the SunSpec device, this integration will now freeze")
             self.shutdown_flag = True
+            return
         
         # Control model:
         if DER_CTL_AC_MID in d.models:
@@ -224,6 +225,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         else:
             _LOGGER.error("No controls model was found on the SunSpec device, this integration will now freeze")
             self.shutdown_flag = True
+            return
         
         # Rating model:
         if DER_CAPACITY_MID in d.models:
@@ -235,12 +237,15 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         else:
             _LOGGER.error("No ratings model was found on the SunSpec device, this integration will now freeze")
             self.shutdown_flag = True
+            return
     
     def write_setpoint(self, d, sp_pct: float) -> None:
         """Write a power setpoint to the SunSpec device, tailored to its brand"""
         for name, point in d.models[self.controls_mid][0].points.items():
             if point.offset == self.WMaxLimPct_offset:
                 point.read()
+
+                # SMA
                 if self.brand == Brand.SMA:
                     point.cvalue = sp_pct
                     try:
@@ -250,6 +255,11 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
                     except Exception as e:
                         _LOGGER.error(f"Failed to write setpoint to inverter: {e}")
                         return
+                
+                #SolarEdge
+                elif self.brand == Brand.SOLAREDGE:
+                    self.last_setpoint_W = self.setpoint_W
+                    _LOGGER.warning("Writing setpoints to this inverter is not yet implemented, but is planned for the future")
                 else:
                     _LOGGER.error("Writing setpoint to this inverter brand is not implemented")
                     return

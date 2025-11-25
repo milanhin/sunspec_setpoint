@@ -21,6 +21,7 @@ class Brand(StrEnum):
     Names of brands are in lower case for easier comparison
     """
     SMA = "sma"
+    SOLAREDGE = "solaredge"
 
 # SunSpec model IDs
     # 100 series
