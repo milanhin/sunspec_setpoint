@@ -11,7 +11,7 @@ CONF_IP = "ip_address"
 CONF_PORT = "port"
 CONF_SLAVE_ID = "slave_id"
 
-INJ_CUTOFF_TARIFF = 50  # [€/MwH]
+INJ_CUTOFF_TARIFF = 200  # [€/MwH] (200 as temporary testing value)
 UPDATE_INTERVAL = 10  # [s]
 
 # Supported brands

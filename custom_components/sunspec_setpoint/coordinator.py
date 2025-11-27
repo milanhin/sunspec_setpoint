@@ -1,6 +1,8 @@
 import logging
 import datetime
+import asyncio
 import sunspec2.modbus.client as client
+from sunspec2.modbus.client import SunSpecModbusClientDeviceTCP
 
 from typing import Any
 from homeassistant.helpers.update_coordinator import (
@@ -27,14 +29,16 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
             config_entry=None,
             update_interval=datetime.timedelta(seconds=UPDATE_INTERVAL),
         )
-        self.setpoint_W: int | None = None      # Holds setpoint in Watt
-        self.last_setpoint_W: int | None = None # Last sent setpoint
-        self.W: float | None = None             # Holds power of inverter
-        self.setpoint_pct: float | None = None  # Holds setpoint in percentage
-        self.d = None                           # SunSpec client device
-        self.WRtg: int | None = None            # Rated inverter power
-        self.shutdown_flag: bool = False        # flag for disabling async_update_data()
-        self.system_switch: bool = False        # System on or off, set by switch entity, off when integration starts
+        self.setpoint_W: int | None = None          # Holds setpoint in Watt
+        self.last_setpoint_W: int | None = None     # Last sent setpoint
+        self.W: float | None = None                 # Holds power of inverter
+        self.setpoint_pct: float | None = None      # Holds setpoint in percentage
+        self.last_import_pwr: float | None = None   # Holds previous import pwr from DSMR
+        self.last_export_pwr: float | None = None   # Holds previous export pwr from DSMR
+        self.d = None                               # SunSpec client device
+        self.WRtg: int | None = None                # Rated inverter power
+        self.shutdown_flag: bool = False            # flag for disabling async_update_data()
+        self.system_switch: bool = False            # System on or off, set by switch entity
 
         # SunSpec models and offsets
         self.measurands_mid: int | None = None
@@ -82,6 +86,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         _LOGGER.info(f"Max rated power read from SunSpec device: {rating} W")
     
     async def _async_update_data(self) -> dict[str, Any]:
+        """Read, calculate setpoint and write every {UPDATE_INTERVAL} seconds"""
         if self.shutdown_flag:
             return {}
         
@@ -120,7 +125,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
                 self.setpoint_W = self.calc_setpoint_W(inj_tariff, pwr_import, pwr_export, self.W, pwr_rated=self.WRtg)
                 self.setpoint_pct = self.calc_setpoint_pct(sp_W=self.setpoint_W, pwr_rated=self.WRtg)
                 if not (self.last_setpoint_W == self.WRtg and self.setpoint_W == self.WRtg):  # Don't keep sending 100% setpoints       
-                    self.write_setpoint(d=self.d, sp_pct=self.setpoint_pct)
+                    await self.write_setpoint(d=self.d, sp_pct=self.setpoint_pct)
             else:
                 _LOGGER.warning("Missing data for setpoint calculation, so no setpoint has been sent to the inverter")
 
@@ -129,7 +134,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
             self.setpoint_W = self.WRtg
             self.setpoint_pct = 100
             if not (self.last_setpoint_W == self.WRtg):
-                self.write_setpoint(d=self.d, sp_pct=self.setpoint_pct)
+                await self.write_setpoint(d=self.d, sp_pct=self.setpoint_pct)
 
         return {
             "setpoint_W": self.setpoint_W,
@@ -154,6 +159,11 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
             return None
     
     def calc_setpoint_W(self, inj_tariff: float, pwr_import: float, pwr_export: float, pwr_PV: float, pwr_rated: float) -> int:
+        # Only update setpoint if energy meter data has been updated
+        if pwr_import == self.last_import_pwr and pwr_export == self.last_export_pwr and self.setpoint_W != None:
+            sp = self.setpoint_W
+            return round(sp)
+        
         if inj_tariff >= INJ_CUTOFF_TARIFF:
             return round(pwr_rated)
         
@@ -239,11 +249,15 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
             self.shutdown_flag = True
             return
     
-    def write_setpoint(self, d, sp_pct: float) -> None:
+    async def write_setpoint(self, d, sp_pct: float) -> None:
         """Write a power setpoint to the SunSpec device, tailored to its brand"""
         for name, point in d.models[self.controls_mid][0].points.items():
             if point.offset == self.WMaxLimPct_offset:
-                point.read()
+                try:
+                    point.read()
+                except Exception as e:
+                    _LOGGER.error(f"Failed to read sunspec register, trying to reconnect now. Read error: {e}")
+                    await self.try_reconnect()
 
                 # SMA
                 if self.brand == Brand.SMA:
@@ -268,17 +282,21 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         """Create reconnection loop while not connected"""
         is_connected = False
         try_counter = 0
-        sleep_time = 0
+        sleep_time = 60
 
         while not is_connected:
+            await asyncio.sleep(sleep_time)
             try:
+                self.d = None
                 self.d = client.SunSpecModbusClientDeviceTCP(slave_id=self.SLAVE_ID, ipaddr=self.IP, ipport=self.PORT)
                 self.d.scan()
+                if len(self.d.models) == 0:
+                    _LOGGER.error("Modbus client succesfully reconnected to slave, but no SunSpec models are available. This integration will now shut down")
+                    self.shutdown_flag = True
+                    return
                 is_connected = True
             except Exception as e:
                 try_counter += 1
-                if try_counter < 3:
-                    sleep_time = 60
-                else:
+                if try_counter > 3:
                     sleep_time = 600
-                _LOGGER.warning(f"Failed reconnecting to SunSpec device, reconnecting in {sleep_time} s")
+                _LOGGER.warning(f"Failed reconnecting to SunSpec device, reconnecting in {sleep_time} s")   
