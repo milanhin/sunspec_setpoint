@@ -10,6 +10,10 @@ CONF_INVERTER_BRAND = "inverter_brand"
 CONF_IP = "ip_address"
 CONF_PORT = "port"
 CONF_SLAVE_ID = "slave_id"
+CONF_USER_STEP = "user_step"
+CONF_CONNECT_STEP = "connect_step"
+CONF_ENERGY_METER_STEP = "energy_meter_step"
+CONF_PRICES_STEP = "prices_step"
 
 INJ_CUTOFF_TARIFF = 200  # [€/MwH] (200 as temporary testing value)
 UPDATE_INTERVAL = 10  # [s]
@@ -22,6 +26,12 @@ class Brand(StrEnum):
     """
     SMA = "sma"
     SOLAREDGE = "solaredge"
+
+# default slave ID mapping for each Brand:
+SLAVE_ID_MAP = {
+    Brand.SMA: 126,
+    Brand.SOLAREDGE: 1,
+}
 
 # SunSpec model IDs
     # 100 series
