@@ -1,7 +1,8 @@
 from enum import StrEnum
 
-DOMAIN = "sunspec_setpoint"
+DOMAIN = "pv_curtailment"
 COORDINATOR = "coordinator"
+CONFIG = "config"
 
 CONF_INJ_TARIFF_ENT_ID = "injection_tariff_entity_id"
 CONF_PWR_IMP_ENT_ID = "power_import_entity_id"
@@ -13,7 +14,7 @@ CONF_SLAVE_ID = "slave_id"
 CONF_USER_STEP = "user_step"
 CONF_CONNECT_STEP = "connect_step"
 CONF_ENERGY_METER_STEP = "energy_meter_step"
-CONF_PRICES_STEP = "prices_step"
+CONF_INJ_TARIFF_STEP = "inj_tariff_step"
 
 INJ_CUTOFF_TARIFF = 200  # [€/MwH] (200 as temporary testing value)
 UPDATE_INTERVAL = 10  # [s]

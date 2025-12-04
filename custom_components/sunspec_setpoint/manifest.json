@@ -1,8 +1,8 @@
 {
-  "domain": "sunspec_setpoint",
-  "name": "SunSpec Setpoint",
+  "domain": "pv_curtailment",
+  "name": "PV Curtailment",
   "codeowners": ["@milanhin"],
-  "config_flow": false,
+  "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/milanhin/sunspec_setpoint",
   "iot_class": "local_push",

@@ -1,14 +1,14 @@
 import logging
 
-from typing import Any
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant import config_entries
+
 from .coordinator import PvCurtailingCoordinator
 
-from .const import DOMAIN
+from .const import DOMAIN, COORDINATOR
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,13 +34,12 @@ class CurtailmentSwitch(CoordinatorEntity, SwitchEntity): # pyright: ignore[repo
         self.async_write_ha_state()
         _LOGGER.info("Curtailment system was deactivated")
 
-
-async def async_setup_platform(
+async def async_setup_entry(
     hass: HomeAssistant,
-    config: ConfigType,
+    config: config_entries.ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None
 ) -> None:
-    pv_coordinator = hass.data[DOMAIN]
+    """Set up switch from config entry"""
+    pv_coordinator = hass.data[DOMAIN][COORDINATOR]
     async_add_entities([CurtailmentSwitch(pv_coordinator)])
     _LOGGER.info("SunSpec setpoint switch was set up")

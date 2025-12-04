@@ -93,7 +93,7 @@ class PvCurtailmentConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            self.data[CONF_PRICES_STEP] = user_input
+            self.data[CONF_INJ_TARIFF_STEP] = user_input
             return self.async_create_entry(title=DOMAIN, data=self.data)
         
         return self.async_show_form(step_id="inj_tariff", data_schema=INJ_TARIFF_SCHEMA)

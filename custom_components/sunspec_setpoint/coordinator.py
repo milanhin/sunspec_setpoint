@@ -10,6 +10,7 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
+from homeassistant import config_entries
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.core import HomeAssistant, State
 from .const import *
@@ -20,7 +21,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
     def __init__(
             self,
             hass: HomeAssistant,
-            config: ConfigType,
+            config_entry: config_entries.ConfigEntry,
     ) -> None:
         super().__init__(
             hass=hass,
@@ -40,6 +41,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         self.shutdown_flag: bool = False            # flag for disabling async_update_data()
         self.system_switch: bool = False            # System on or off, set by switch entity
         self.sleep: bool = False                    # Sleep mode on or off (when reconnecting)
+        self.sunspec_setup_success: bool = False    # Indicate whether sunspec connection was successfully set up
 
         # SunSpec models and offsets
         self.measurands_mid: int | None = None
@@ -50,13 +52,14 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         self.WMaxLimPct_offset: int | None = None
 
         # unpack config
-        self.inj_trf_ent_id: str = config[CONF_INJ_TARIFF_ENT_ID]
-        self.pwr_imp_ent_id: str = config[CONF_PWR_IMP_ENT_ID]
-        self.pwr_exp_ent_id: str = config[CONF_PWR_EXP_ENT_ID]
-        self.IP:             str = config[CONF_IP]
-        self.PORT                = int(config[CONF_PORT])
-        self.SLAVE_ID            = int(config[CONF_SLAVE_ID])
-        self.brand: Brand        = Brand(str(config[CONF_INVERTER_BRAND]).lower())
+        config = hass.data[DOMAIN][CONFIG]
+        self.inj_trf_ent_id: str = config[CONF_INJ_TARIFF_STEP][CONF_INJ_TARIFF_ENT_ID]
+        self.pwr_imp_ent_id: str = config[CONF_ENERGY_METER_STEP][CONF_PWR_IMP_ENT_ID]
+        self.pwr_exp_ent_id: str = config[CONF_ENERGY_METER_STEP][CONF_PWR_EXP_ENT_ID]
+        self.IP:             str = config[CONF_CONNECT_STEP][CONF_IP]
+        self.PORT                = int(config[CONF_CONNECT_STEP][CONF_PORT])
+        self.SLAVE_ID            = int(config[CONF_CONNECT_STEP][CONF_SLAVE_ID])
+        self.brand: Brand        = Brand(str(config[CONF_USER_STEP][CONF_INVERTER_BRAND]).lower())
     
     async def _async_setup(self) -> None:
         """Set up coordinator"""
@@ -85,6 +88,9 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         if rating != None:
             self.WRtg = int(rating)
         _LOGGER.info(f"Max rated power read from SunSpec device: {rating} W")
+
+        # SunSpec setup successful
+        self.sunspec_setup_success = True
     
     async def _async_update_data(self) -> dict[str, Any]:
         """Read, calculate setpoint and write every {UPDATE_INTERVAL} seconds"""

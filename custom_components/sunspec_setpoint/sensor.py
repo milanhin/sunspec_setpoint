@@ -1,25 +1,24 @@
 import logging
-import voluptuous as vol
 
 from homeassistant.core import HomeAssistant
-import homeassistant.helpers.config_validation as cv
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.const import UnitOfPower
+from homeassistant import config_entries
+
 from .coordinator import PvCurtailingCoordinator
-from .const import DOMAIN
+from .const import DOMAIN, COORDINATOR
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup_platform(
+async def async_setup_entry(
     hass: HomeAssistant,
-    config: ConfigType,
+    config_entry: config_entries.ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None
-) -> None:
-    pv_coordinator = hass.data[DOMAIN]
+):
+    """Set up sensor from config entry"""
+    pv_coordinator = hass.data[DOMAIN][COORDINATOR]
 
     async_add_entities([SetpointSensor(coordinator=pv_coordinator), InverterPowerSensor(coordinator=pv_coordinator)])
     _LOGGER.info("SunSpec Setpoint sensors were set up")
