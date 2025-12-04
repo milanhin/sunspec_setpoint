@@ -39,6 +39,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         self.WRtg: int | None = None                # Rated inverter power
         self.shutdown_flag: bool = False            # flag for disabling async_update_data()
         self.system_switch: bool = False            # System on or off, set by switch entity
+        self.sleep: bool = False                    # Sleep mode on or off (when reconnecting)
 
         # SunSpec models and offsets
         self.measurands_mid: int | None = None
@@ -87,7 +88,7 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
     
     async def _async_update_data(self) -> dict[str, Any]:
         """Read, calculate setpoint and write every {UPDATE_INTERVAL} seconds"""
-        if self.shutdown_flag:
+        if self.shutdown_flag or self.sleep:
             return {}
         
         if self.d == None:
@@ -135,6 +136,10 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
             self.setpoint_pct = 100
             if not (self.last_setpoint_W == self.WRtg):
                 await self.write_setpoint(d=self.d, sp_pct=self.setpoint_pct)
+        
+        # Save last state of energy meter
+        self.last_export_pwr = pwr_export
+        self.last_import_pwr = pwr_import
 
         return {
             "setpoint_W": self.setpoint_W,
@@ -285,18 +290,24 @@ class PvCurtailingCoordinator(DataUpdateCoordinator):
         sleep_time = 60
 
         while not is_connected:
+            self.sleep = True
             await asyncio.sleep(sleep_time)
             try:
                 self.d = None
-                self.d = client.SunSpecModbusClientDeviceTCP(slave_id=self.SLAVE_ID, ipaddr=self.IP, ipport=self.PORT)
-                self.d.scan()
+                self.d = await self.hass.async_add_executor_job(self.connect_and_scan)  # blocking call
                 if len(self.d.models) == 0:
                     _LOGGER.error("Modbus client succesfully reconnected to slave, but no SunSpec models are available. This integration will now shut down")
                     self.shutdown_flag = True
                     return
                 is_connected = True
+                self.sleep = False
             except Exception as e:
                 try_counter += 1
                 if try_counter > 3:
                     sleep_time = 600
-                _LOGGER.warning(f"Failed reconnecting to SunSpec device, reconnecting in {sleep_time} s")   
+                _LOGGER.warning(f"Failed reconnecting to SunSpec device, reconnecting in {sleep_time} s")
+    
+    def connect_and_scan(self) -> SunSpecModbusClientDeviceTCP:
+        d = client.SunSpecModbusClientDeviceTCP(slave_id=self.SLAVE_ID, ipaddr=self.IP, ipport=self.PORT)
+        d.scan()
+        return d
